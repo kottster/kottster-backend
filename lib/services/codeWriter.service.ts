@@ -125,7 +125,7 @@ export class CodeWriter {
 
       // If directory doesn't exist, return empty array
       if (!fs.existsSync(dir)) {
-        return filenames;
+        return [];
       }
       
       const files = fs.readdirSync(dir);
@@ -137,9 +137,12 @@ export class CodeWriter {
     }
 
     // Get all files inside ../src/__generated__/procedures/<stage>
-    let files: string[] = [];
+    const files: string[] = [];
     Object.values(Stage).forEach(stage => {
-      files = files.concat(getFilenames(path.join(PROJECT_DIR, `src/__generated__/${stage}/procedures`)));
+      const filenames = getFilenames(path.join(PROJECT_DIR, `src/__generated__/${stage}/procedures`));
+      filenames.forEach(filename => {
+        files.push(`${stage}/procedures/${filename}`);
+      });
     });
 
     // Generate imports

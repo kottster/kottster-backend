@@ -6,10 +6,13 @@ import { addProcedures } from "../actions/addProcedures.action";
 import { SetupAdapter } from "../actions/setupAdapter.action";
 import { PublishApp } from "../actions/publishApp.action";
 import { RemoveProcedures } from "../actions/removeProcedures.action";
+import { GetProcedures } from "../actions/getProcedures.action";
 
 export class ActionService {
   static getAction(app: KottsterApp, action: string): Action<any> {
     switch (action) {
+      case 'getProcedures':
+        return new GetProcedures(app);
       case 'getDataForCodeGeneration':
         return new GetDataForCodeGeneration(app);
       case 'addProcedures':
