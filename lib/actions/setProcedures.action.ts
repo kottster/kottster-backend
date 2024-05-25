@@ -1,27 +1,25 @@
 import { Action } from "../models/action.model";
 import { FileProcedure } from "../models/procedure.model";
+import { Stage } from "../models/stage.model";
 import { CodeWriter } from "../services/codeWriter.service";
 
 interface ActionSpec {
   data: {
-    pageId: string;
-    componentType: string;
-    componentId: string;
-
+    stage: Stage;
     procedures: FileProcedure[];
   };
   result: any;
 }
 
 /**
- * Add component procedures to the app
+ * Set procedures to the app
  */
-export class addProcedures extends Action<ActionSpec> {
+export class SetProcedures extends Action<ActionSpec> {
   public async execute(data: ActionSpec['data']) {
-    const { pageId, componentType, componentId, procedures } = data;
+    const { stage, procedures } = data;
 
     const codeWriter = new CodeWriter();
-    codeWriter.writeComponentProceduresToFile(pageId, componentType, componentId, procedures);
+    codeWriter.writeProceduresToFile(stage, procedures);
 
     return {};
   }

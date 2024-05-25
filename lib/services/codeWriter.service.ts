@@ -5,6 +5,7 @@ import { Adapter } from "../models/adapter.model";
 import path from "path";
 import { Stage } from "../models/stage.model";
 import { stringifyObject } from "../utils/stringifyObject";
+import { parseModule } from "esprima";
 
 /**
  * Service to write code to a file
@@ -21,102 +22,60 @@ export class CodeWriter {
     const content = this.getAdaptersFileContent(adapter);
     const filePath = `${PROJECT_DIR}/src/adapters.js`;
     
-    await this.writeFile(filePath, content);
+    this.writeFile(filePath, content);
     
-    await this.generateAutoImports();
+    this.generateAutoImports();
   }
 
   /**
-   * Remove the component procedures file
-   * @description File src/__generated__/dev/procedures/page_<pageId>_<componentType>_<componentId>.js
+   * Write the procedures to the file
+   * @description File src/__generated__/<stage>/procedures.js & src/__generated__/<stage>/procedures.json
    */
-  public async removeComponentProceduresFile(pageId: string, componentType: string, componentId: string): Promise<void> {
-    // Check if the directory exists
-    if (!fs.existsSync(`${PROJECT_DIR}/src/__generated__/dev/procedures`)) {
-      return;
+  public async writeProceduresToFile(stage: Stage, procedures: FileProcedure[]): Promise<void> {
+    const filePath = `${PROJECT_DIR}/src/__generated__/${stage}/procedures.js`;
+    const content = this.getProceduresFileContent(procedures);
+    
+    // Check if the content is valid
+    if (!this.isJSCodeValid(content)) {
+      throw new Error('Invalid JavaScript code');
     }
     
-    const filePath = `${PROJECT_DIR}/src/__generated__/dev/procedures/page_${pageId}_${componentType}_${componentId}.js`;
-    
-    await this.removeFile(filePath);
-    await this.generateAutoImports();
-  }
+    this.writeFile(filePath, content);
+    this.generateAutoImports();
 
-  /**
-   * Remove all procedures for a page
-   * @description Files inside src/__generated__/dev/procedures that start with `page_<pageId>`
-   */
-  public async removePageProceduresFromFile(pageId: string): Promise<void> {
-    // Check if the directory exists
-    if (!fs.existsSync(`${PROJECT_DIR}/src/__generated__/dev/procedures`)) {
-      return;
-    }
-
-    // Get filenames that start with `page_<pageId>`
-    const dirPath = `${PROJECT_DIR}/src/__generated__/dev/procedures`;
-    const files = fs.readdirSync(dirPath);
-    const filenames = files.filter(file => file.startsWith(`page_${pageId}`));
-    
-    // Remove all files
-    filenames.forEach(async filename => {
-      const filePath = path.join(dirPath, filename);
-      await this.removeFile(filePath);
-    });
-  }
-
-  /**
-   * Write the component procedures to the file
-   * @description File src/__generated__/dev/procedures/page_<pageId>_<componentType>_<componentId>.js
-   */
-  public async writeComponentProceduresToFile(pageId: string, componentType: string, componentId: string, procedures: FileProcedure[]): Promise<void> {
-    const filePath = `${PROJECT_DIR}/src/__generated__/dev/procedures/page_${pageId}_${componentType}_${componentId}.js`;
-    const content = this.getComponentProceduresFileContent(pageId, componentType, componentId, procedures);
-    
-    await this.writeFile(filePath, content);  
-    await this.generateAutoImports();
+    // Add procedures.json file nearby
+    const jsonFilePath = filePath.replace(/\.js$/, '.json');
+    const jsonContent = JSON.stringify(procedures, null, 2);
+    this.writeFile(jsonFilePath, jsonContent);
   }
 
   /**
    * Copy dev files to prod ones file
-   * @description Copy files from src/__generated__/dev/procedures/ to src/__generated__/prod/procedures/
+   * @description Copy procedures.js from src/__generated__/dev to src/__generated__/prod
    */
   public async copyDevFilesToProd(): Promise<void> {
-    const devDir = path.join(PROJECT_DIR, 'src/__generated__/dev');
-    const prodDir = path.join(PROJECT_DIR, 'src/__generated__/prod');
+    // Get dev procedures
+    const filePath = `${PROJECT_DIR}/src/__generated__/${Stage.development}/procedures.json`;
+    const devJsonFileContent = this.readFile(filePath);
+    const devProcedures = JSON.parse(devJsonFileContent) as FileProcedure[];
+    
+    // Create prod procedures by changing the stage to 'prod'
+    const prodProcedures = devProcedures.map(procedure => {
+      return {
+        ...procedure,
+        stage: Stage.production
+      };
+    });
 
-    // Check if src/__generated__/dev exists
-    if (fs.existsSync(devDir)) {
-      // Remove src/__generated__/prod directory
-      if (fs.existsSync(prodDir)) {
-        fs.rmdirSync(prodDir, { recursive: true });
-      }
-
-      // Copy src/__generated__/dev to src/__generated__/prod
-      this.copyDirectory(
-        devDir, 
-        prodDir
-      );
-
-      // TODO: refactor this code
-      // For all files inside src/__generated__/prod/procedures, 
-      // replace 'const STAGE = 'dev';' with 'const STAGE = 'prod';'
-      const files = fs.readdirSync(path.join(prodDir, 'procedures'));
-      files.forEach(file => {
-        const filePath = path.join(path.join(prodDir, 'procedures'), file);
-        const content = fs.readFileSync(filePath, 'utf-8');
-        const newContent = content.replace(`const STAGE = 'dev';`, `const STAGE = 'prod';`);
-        fs.writeFileSync(filePath, newContent);
-      });
-    }
-
-    await this.generateAutoImports();
+    // Write prod procedures
+    this.writeProceduresToFile(Stage.production, prodProcedures);
   }
 
   /**
    * Generate the auto imports
    * @description File src/__generated__/index.js
    */
-  public async generateAutoImports(): Promise<void> {
+  public generateAutoImports(): void {
     let content = this.AUTO_GENERATED_FILE_HEADER;
 
     // Get filenames in a directory
@@ -136,12 +95,14 @@ export class CodeWriter {
       return filenames;
     }
 
-    // Get all files inside ../src/__generated__/procedures/<stage>
+    // Get all files inside ../src/__generated__/<stage>
     const files: string[] = [];
     Object.values(Stage).forEach(stage => {
-      const filenames = getFilenames(path.join(PROJECT_DIR, `src/__generated__/${stage}/procedures`));
+      const filenames = getFilenames(path.join(PROJECT_DIR, `src/__generated__/${stage}`));
       filenames.forEach(filename => {
-        files.push(`${stage}/procedures/${filename}`);
+        if (filename.endsWith('.js')) {
+          files.push(`${stage}/${filename}`);
+        }
       });
     });
 
@@ -154,10 +115,10 @@ export class CodeWriter {
     content += imports.join('\n') + '\n';
 
     // Write the file
-    await this.writeFile(path.join(PROJECT_DIR, 'src/__generated__/', 'index.js'), content);
+    this.writeFile(path.join(PROJECT_DIR, 'src/__generated__/', 'index.js'), content);
   }
 
-  private async writeFile(filePath: string, content: string): Promise<void> {
+  private writeFile(filePath: string, content: string): void {
     // Create directory if it doesn't exist
     const fileDirPath = filePath.replace(/\/[^/]+$/, '');
     if (!fs.existsSync(fileDirPath)) {
@@ -167,12 +128,16 @@ export class CodeWriter {
     fs.writeFileSync(filePath, content);
   }
 
-  private async removeFile(filePath: string): Promise<void> {
+  private readFile(filePath: string): string {
+    return fs.readFileSync(filePath, 'utf8');
+  }
+
+  private removeFile(filePath: string): void {
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     };
 
-    await this.generateAutoImports();
+    this.generateAutoImports();
   }
 
   private copyDirectory(src: string, dest: string): void {
@@ -199,24 +164,17 @@ export class CodeWriter {
     });
   }
 
-  private getComponentProceduresFileContent(pageId: string, componentType: string, componentId: string, procedures: FileProcedure[]): string {
+  private getProceduresFileContent(procedures: FileProcedure[]): string {
     let content: string = this.AUTO_GENERATED_FILE_HEADER;
     
     // Add the imports
-    content += `import { app } from '../../../app';\n\n`;
+    content += `import { app } from '../../app';\n\n`;
 
-    content += `const STAGE = '${Stage.development}';\n`;
-    content += `const PAGE_ID = '${pageId}';\n`;
-    content += `const COMPONENT_TYPE = '${componentType}';\n`;
-    content += `const COMPONENT_ID = '${componentId}';\n\n`;
-
-    // For each component, add the procedures
-    content += `app.registerProceduresForComponent(STAGE, PAGE_ID, COMPONENT_TYPE, COMPONENT_ID, {\n`;
+    // Register the procedures
     procedures.forEach(procedure => {
-      const { functionBody, procedureName } = procedure;
-      content += `  '${procedureName}': ${functionBody},\n`;
+      const { stage, pageId, componentType, componentId, functionBody, procedureName } = procedure;
+      content += `app.registerProcedureForComponent('${stage}', '${pageId}', '${componentType}', '${componentId}', '${procedureName}', ${functionBody});\n\n`;
     });
-    content += `});\n\n`;
 
     return content;
   }
@@ -236,5 +194,15 @@ export class CodeWriter {
     content += `export default adapters;\n\n`;
     
     return content;
+  }
+
+  private isJSCodeValid(code: string): boolean {
+    try {
+      parseModule(code, { tolerant: true });
+      return true;
+    } catch (error) {
+      console.error(error);
+      return false;
+    }
   }
 }

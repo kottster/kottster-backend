@@ -5,6 +5,7 @@ import { getSampleProceduresFileContent, getSampleMetricFileProcedure, getSample
 import { createAdapter } from "../../../lib";
 import { AdapterType } from "../../../lib/models/adapter.model";
 import { PROJECT_DIR } from "../../../lib/constants/projectDir";
+import { Stage } from "../../../lib/models/stage.model";
 
 const writeFileSyncSpy = jest.spyOn(fs, 'writeFileSync');
 
@@ -48,7 +49,7 @@ describe('services/codeWriter', () => {
     const filePath = `${PROJECT_DIR}/src/__generated__/dev/procedures/page_p1_metric_m1.js`;
     
     const codeWriter = new CodeWriter();
-    await codeWriter.writeComponentProceduresToFile('p1', 'metric', 'm1', [
+    await codeWriter.writeProceduresToFile(Stage.development, [
       getSampleMetricFileProcedure()
     ]);
 

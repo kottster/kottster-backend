@@ -14,5 +14,4 @@ export interface Procedure {
 
 export interface FileProcedure extends Omit<Procedure, 'function'> {
   functionBody: string;
-  filePath: string;
 }

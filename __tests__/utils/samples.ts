@@ -9,7 +9,6 @@ export function getSampleMetricFileProcedure(): FileProcedure {
     componentId: 'm1',
     procedureName: 'getUserCount',
     functionBody: 'async function () {return { userCount: 123 };}',
-    filePath: `${process.cwd()}/src/__generated__/dev/procedures/page_p1_metric_m1.js`,
   }
 }
 

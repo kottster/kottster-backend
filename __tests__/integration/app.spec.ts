@@ -106,13 +106,11 @@ describe('app integration test', () => {
 
   it('should write procedures to file', async () => {
     const res = await request(server)
-      .get('/action/addProcedures')
+      .get('/action/setProcedures')
       .set('Authorization', `Bearer ${jwtTokenWithBuilderRole}`)
       .query({ 
         actionData: JSON.stringify({
-          pageId: 'p1',
-          componentType: 'metric',
-          componentId: 'm1',
+          stage: 'dev',
           procedures: [
             {
               pageId: 'p1',
@@ -123,14 +121,14 @@ describe('app integration test', () => {
                 const result = await this.knex.raw('SELECT 123 AS foo');
                 return { foo: result.rows[0].foo };
               }`,
-              filePath: `${PROJECT_DIR}/src/pages/p1.js`,
             }
           ]
         })
       });
 
     expect(res.status).toBe(200);
-    expect(writeFileSyncSpy).toHaveBeenCalledWith(`${PROJECT_DIR}/src/__generated__/dev/procedures/page_p1_metric_m1.js`, expect.stringContaining('getTotalOrdersCount'));
+    expect(writeFileSyncSpy).toHaveBeenCalledWith(`${PROJECT_DIR}/src/__generated__/dev/procedures.js`, expect.stringContaining('getTotalOrdersCount'));
+    expect(writeFileSyncSpy).toHaveBeenCalledWith(`${PROJECT_DIR}/src/__generated__/dev/procedures.json`, expect.stringContaining('getTotalOrdersCount'));
   });
 
   it('should return error for executing RPC', async () => {
@@ -142,11 +140,9 @@ describe('app integration test', () => {
   
   it('should execute RPC', async () => {
     // Register procedure
-    app.registerProceduresForComponent(Stage.development, 'p1', 'metric', 'm1', {
-      'getTotalOrdersCount': async function() {
-        const result = await this.knex?.raw('SELECT 123 AS foo');
-        return { foo: result.rows[0].foo };
-      }
+    app.registerProcedureForComponent(Stage.development, 'p1', 'metric', 'm1', 'getTotalOrdersCount', async function() {
+      const result = await this.knex?.raw('SELECT 123 AS foo');
+      return { foo: result.rows[0].foo };
     });
 
     const res = await request(server)
@@ -179,7 +175,6 @@ describe('app integration test', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.result).toHaveProperty('databaseSchema');
-    expect(res.body.result).toHaveProperty('procedures');
   });
 
   // TODO:

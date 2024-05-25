@@ -78,26 +78,25 @@ export class KottsterApp {
    * @param procedureName The name of the procedure
    * @param fn The function to execute when the procedure is called
    */
-  public registerProceduresForComponent(
+  public registerProcedureForComponent(
     stage: Stage,
     pageId: string, 
     componentType: string, 
     componentId: string, 
-    procedures: Record<string, ProcedureFunction>
+    procedureName: string,
+    procedure: ProcedureFunction
   ): void {
     // Delete all existing procedures for the component
     this.procedures = this.procedures.filter(p => p.stage !== stage || p.pageId !== pageId || p.componentType !== componentType || p.componentId !== componentId);
     
-    // Add the procedures
-    Object.entries(procedures).forEach(([procedureName, fn]) => {
-      this.procedures.push({
-        stage,
-        pageId,
-        componentType,
-        componentId,
-        procedureName,
-        function: this.addContext(fn)
-      })
+    // Add the procedure
+    this.procedures.push({
+      stage,
+      pageId,
+      componentType,
+      componentId,
+      procedureName,
+      function: this.addContext(procedure)
     });
   }
 
