@@ -4,11 +4,13 @@ import { Adapter, AdapterType } from "../models/adapter.model";
 export class PostgreSQL extends Adapter {
   type = AdapterType.postgresql;
 
+  knexClientKey = 'pg';
+
   async getDatabaseSchema(): Promise<DatabaseSchema> {
     const schemaName = this.connectionOptions?.searchPath?.[0] || 'public';
 
     // Query to get all tables and their columns with enum values
-    const tablesQueryResult = await this.knex?.raw(`
+    const tablesQueryResult = await this.knex!.raw(`
       SELECT
         t.table_name,
         c.column_name,
@@ -18,7 +20,8 @@ export class PostgreSQL extends Adapter {
           FROM pg_enum e
           JOIN pg_type t ON e.enumtypid = t.oid
           WHERE t.typname = c.udt_name
-        ) ELSE NULL END AS enum_values
+        ) ELSE NULL END AS enum_values,
+        c.is_nullable = 'YES' AS nullable
       FROM
         information_schema.tables t
         JOIN information_schema.columns c ON t.table_name = c.table_name
@@ -51,6 +54,7 @@ export class PostgreSQL extends Adapter {
       table.columns.push({
         name: row.column_name,
         type: row.data_type,
+        nullable: row.nullable,
         enumValues: row.enum_values,
       });
     }

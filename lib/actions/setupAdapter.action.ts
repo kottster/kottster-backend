@@ -8,32 +8,39 @@ interface ActionSpec {
     type: AdapterType;
     connectionOptions: unknown;
   };
-  result: {};
+  result: {
+    noTables: boolean;
+  };
 }
 
 /**
  * Setup the adapter for the app
  */
 export class SetupAdapter extends Action<ActionSpec> {
-  public async execute(data: ActionSpec['data']) {
+  public async execute(data: ActionSpec['data']): Promise<ActionSpec['result']> {
     const adapter = AdapterService.getAdapter(data.type, data.connectionOptions);
 
-    // Validate the connection options
+    await adapter.connect();
+
     await this.validateConnectionOptions(adapter);
+
+    // Check for tables in the database
+    const databaseSchema = await adapter.getDatabaseSchema();
+    const noTables = databaseSchema.tables.length === 0;
 
     await this.createAdapterFile(adapter);
 
-    return {};
+    await adapter.destroyConnection();
+
+    return {
+      noTables
+    };
   }
 
   async validateConnectionOptions(adapter: Adapter): Promise<void> {
     try {
-      adapter.connect();
-      
       // Ping the database to ensure the connection is working
       await adapter.pingDatabase();
-
-      adapter.destroyConnection();
     } catch (error) {
       throw new Error(`Failed to connect to the database: ${error.message}`);
     };

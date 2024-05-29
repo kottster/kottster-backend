@@ -1,5 +1,6 @@
 import { Knex, knex } from "knex";
 import { DatabaseSchema } from "./databaseSchema.model";
+import { attachPaginate } from 'knex-paginate';
 
 export enum AdapterType {
   postgresql = 'postgresql',
@@ -20,7 +21,13 @@ export abstract class Adapter {
 
   constructor(
     protected connectionOptions: any
-  ) {}
+  ) {
+    try {
+      attachPaginate();
+    } catch (e) {
+      console.error('Error attaching paginate to knex', e);
+    }
+  }
 
   /**
    * Connect to the database
@@ -29,7 +36,7 @@ export abstract class Adapter {
     const connectionOptions = this.getConnectionOptions();
 
     this.knex = knex({
-      client: this.type,
+      client: this.knexClientKey,
       connection: typeof connectionOptions?.connection === 'object' ? {...connectionOptions?.connection} : connectionOptions?.connection,
       searchPath: connectionOptions?.searchPath,
     });
@@ -39,8 +46,14 @@ export abstract class Adapter {
     return this.connectionOptions;
   }
 
-  pingDatabase() {
-    return this.knex?.raw('SELECT 1');
+  async pingDatabase(): Promise<boolean> {
+    try {
+      await this.knex?.raw('SELECT 1');
+      return true;
+    } catch (e) {
+      console.error(e);
+    }
+    return false;
   }
 
   destroyConnection(): void {
@@ -57,6 +70,8 @@ export abstract class Adapter {
 
     return this.knex;
   }
+
+  abstract knexClientKey: string;
 
   abstract getDatabaseSchema(): Promise<DatabaseSchema>;
 }

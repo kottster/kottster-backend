@@ -66,7 +66,7 @@ export class KottsterApp {
    * @param fn The function to add context to
    */
   private addContext<T extends Function>(fn: T): T {
-    // TODO: use proxy object instead of KottsterApp
+    // TODO: use proxy object instead of KottsterApp instance
     return fn.bind(this);
   }
 

@@ -176,8 +176,4 @@ describe('app integration test', () => {
     expect(res.status).toBe(200);
     expect(res.body.result).toHaveProperty('databaseSchema');
   });
-
-  // TODO:
-  // - Add procedure removal
-  // - Add publishing app to production
 });
