@@ -32,7 +32,7 @@ app.registerProceduresForComponent(STAGE, PAGE_ID, COMPONENT_TYPE, COMPONENT_ID,
 
 // Get sample src/dev/adapter.js file content
 export function getSampleAdapterFileContent(): string {
-  return `import { app } from './app';
+  return `import { app } from './app.js';
 import { createAdapter } from '@kottster/backend';
 
 export const adapter = createAdapter('postgresql', {

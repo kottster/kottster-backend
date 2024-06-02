@@ -168,7 +168,7 @@ export class CodeWriter {
     let content: string = this.AUTO_GENERATED_FILE_HEADER;
     
     // Add the imports
-    content += `import { app } from '../../app';\n\n`;
+    content += `import { app } from '../../app.js';\n\n`;
 
     // Register the procedures
     procedures.forEach(procedure => {

@@ -20,9 +20,12 @@ export class SetupAdapter extends Action<ActionSpec> {
   public async execute(data: ActionSpec['data']): Promise<ActionSpec['result']> {
     const adapter = AdapterService.getAdapter(data.type, data.connectionOptions);
 
-    await adapter.connect();
-
-    await this.validateConnectionOptions(adapter);
+    try {
+      await adapter.connect();
+      await adapter.pingDatabase();
+    } catch (error) {
+      throw new Error(`Failed to connect to the database: ${error.message}`);
+    };
 
     // Check for tables in the database
     const databaseSchema = await adapter.getDatabaseSchema();
@@ -34,15 +37,6 @@ export class SetupAdapter extends Action<ActionSpec> {
 
     return {
       noTables
-    };
-  }
-
-  async validateConnectionOptions(adapter: Adapter): Promise<void> {
-    try {
-      // Ping the database to ensure the connection is working
-      await adapter.pingDatabase();
-    } catch (error) {
-      throw new Error(`Failed to connect to the database: ${error.message}`);
     };
   }
 
