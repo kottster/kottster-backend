@@ -40,6 +40,16 @@ export abstract class Adapter {
       connection: typeof connectionOptions?.connection === 'object' ? {...connectionOptions?.connection} : connectionOptions?.connection,
       searchPath: connectionOptions?.searchPath,
     });
+
+    // Handle connection errors
+    this.knex.client.pool.on('error', (err) => {
+      console.error('Database connection error:', err);
+
+      setTimeout(() => {
+        console.log('Attempting to reconnect to the database...');
+        this.connect();
+      }, 3000);
+    });
   };
 
   getConnectionOptions(): any {

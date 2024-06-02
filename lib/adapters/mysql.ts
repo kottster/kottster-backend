@@ -7,7 +7,7 @@ export class MySQL extends Adapter {
   knexClientKey = 'mysql2';
 
   async getDatabaseSchema(): Promise<DatabaseSchema> {
-    const schemaName = this.connectionOptions?.searchPath?.[0] || 'public';
+    const schemaName = this.connectionOptions?.connection?.database;
 
     const tablesResult = await this.knex!.raw(`
       SELECT table_name 
