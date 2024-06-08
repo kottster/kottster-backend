@@ -10,7 +10,7 @@ export class MySQL extends Adapter {
     const schemaName = this.connectionOptions?.connection?.database;
 
     const tablesResult = await this.knex!.raw(`
-      SELECT table_name 
+      SELECT table_name AS table_name
       FROM information_schema.tables 
       WHERE table_schema = ? AND table_type = 'BASE TABLE'
     `, [schemaName]);
@@ -23,10 +23,14 @@ export class MySQL extends Adapter {
     };
 
     for (const table of tables) {
-      const tableName = table.TABLE_NAME;
+      const tableName = table.table_name;
 
       const columnsResult = await this.knex!.raw(`
-        SELECT column_name, data_type, column_type, is_nullable
+        SELECT 
+          column_name AS column_name, 
+          data_type AS data_type, 
+          column_type AS column_type, 
+          is_nullable AS is_nullable
         FROM information_schema.columns 
         WHERE table_schema = ? AND table_name = ?
       `, [schemaName, tableName]);
@@ -34,14 +38,14 @@ export class MySQL extends Adapter {
       const columns = columnsResult[0];
 
       const schemaColumns: DatabaseSchemaColumn[] = columns.map(column => {
-        const enumValues = column.COLUMN_TYPE.includes('enum')
-          ? column.COLUMN_TYPE.replace(/enum\((.*)\)/, '$1').replace(/'/g, '')
+        const enumValues = column.column_type.includes('enum')
+          ? column.column_type.replace(/enum\((.*)\)/, '$1').replace(/'/g, '')
           : undefined;
-          
+
         return {
-          name: column.COLUMN_NAME,
-          type: column.DATA_TYPE,
-          nullable: column.IS_NULLABLE === 'YES',
+          name: column.column_name,
+          type: column.data_type,
+          nullable: column.is_nullable === 'YES',
           enumValues
         } as DatabaseSchemaColumn;
       });

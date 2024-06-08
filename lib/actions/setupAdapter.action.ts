@@ -21,7 +21,7 @@ export class SetupAdapter extends Action<ActionSpec> {
     const adapter = AdapterService.getAdapter(data.type, data.connectionOptions);
 
     try {
-      await adapter.connect();
+      await adapter.connect(false);
       await adapter.pingDatabase();
     } catch (error) {
       throw new Error(`Failed to connect to the database: ${error.message}`);

@@ -31,8 +31,9 @@ export abstract class Adapter {
 
   /**
    * Connect to the database
+   * @param reloadOnFailure - If true, will attempt to reconnect to the database on failure
    */
-  connect(): void {
+  connect(reloadOnFailure = true): void {
     const connectionOptions = this.getConnectionOptions();
 
     this.knex = knex({
@@ -41,15 +42,17 @@ export abstract class Adapter {
       searchPath: connectionOptions?.searchPath,
     });
 
-    // Handle connection errors
-    this.knex.client.pool.on('error', (err) => {
-      console.error('Database connection error:', err);
-
-      setTimeout(() => {
-        console.log('Attempting to reconnect to the database...');
-        this.connect();
-      }, 3000);
-    });
+    if (reloadOnFailure) {
+      // Handle connection errors
+      this.knex.client.pool.on('error', (err) => {
+        console.error('Database connection error:', err);
+  
+        setTimeout(() => {
+          console.log('Attempting to reconnect to the database...');
+          this.connect();
+        }, 3000);
+      });
+    }
   };
 
   getConnectionOptions(): any {
