@@ -18,7 +18,7 @@ export class MSSQL extends Adapter {
         CASE WHEN c.IS_NULLABLE = 'YES' THEN 1 ELSE 0 END as nullable
       FROM
         INFORMATION_SCHEMA.TABLES t
-        JOIN INFORMATION_SCHEMA.COLUMNS c ON t.TABLE_NAME = c.TABLE_NAME
+        JOIN INFORMATION_SCHEMA.COLUMNS c ON t.TABLE_NAME = c.TABLE_NAME AND t.TABLE_SCHEMA = c.TABLE_SCHEMA
       WHERE
         t.TABLE_SCHEMA = ?;
     `, [schemaName]);
