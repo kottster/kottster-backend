@@ -1,7 +1,7 @@
-import { KottsterApp } from "../core/app";
+import { AppContext } from "./appContext.model";
 import { Stage } from "./stage.model";
 
-export type ProcedureFunction = (this: KottsterApp, args: Record<string, unknown>) => void;
+export type ProcedureFunction = (opts: { ctx: AppContext; args: Record<string, unknown>; }) => void;
 
 export interface Procedure {
   stage: Stage;

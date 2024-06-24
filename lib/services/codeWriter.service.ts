@@ -5,7 +5,6 @@ import { Adapter } from "../models/adapter.model";
 import path from "path";
 import { Stage } from "../models/stage.model";
 import { stringifyObject } from "../utils/stringifyObject";
-import { parseModule } from "esprima";
 
 /**
  * Service to write code to a file
@@ -16,11 +15,11 @@ export class CodeWriter {
 
   /**
    * Write the adapter to the file
-   * @description File src/adapters.js
+   * @description File src/adapter.js
    */
-  public async writeAdapterToFile(adapter: Adapter): Promise<void> {
-    const content = this.getAdaptersFileContent(adapter);
-    const filePath = `${PROJECT_DIR}/src/adapters.js`;
+  public writeAdapterToFile(adapter: Adapter): void {
+    const content = this.getAdapterFileContent(adapter);
+    const filePath = `${PROJECT_DIR}/src/adapter.js`;
     
     this.writeFile(filePath, content);
     
@@ -31,16 +30,17 @@ export class CodeWriter {
    * Write the procedures to the file
    * @description File src/__generated__/<stage>/procedures.js & src/__generated__/<stage>/procedures.json
    */
-  public async writeProceduresToFile(stage: Stage, procedures: FileProcedure[]): Promise<void> {
+  public writeProceduresToFile(stage: Stage, procedures: FileProcedure[]): void {
+    // Create a file for each procedure
+    procedures.forEach(procedure => {
+      this.writeProcedureToFile(stage, procedure);
+    });
+    
+    // Write the procedures file
     const filePath = `${PROJECT_DIR}/src/__generated__/${stage}/procedures.js`;
     const content = this.getProceduresFileContent(procedures);
-    
-    // Check if the content is valid
-    if (!this.isJSCodeValid(content)) {
-      throw new Error('Invalid JavaScript code');
-    }
-    
     this.writeFile(filePath, content);
+
     this.generateAutoImports();
 
     // Add procedures.json file nearby
@@ -50,12 +50,27 @@ export class CodeWriter {
   }
 
   /**
+   * Write the procedure to the file
+   * @description File src/__generated__/<stage>/procedures/<procedureName>.js
+   */
+  private writeProcedureToFile(stage: Stage, procedure: FileProcedure): void {
+    const filePath = `${PROJECT_DIR}/src/__generated__/${stage}/procedures/${procedure.componentType}_${procedure.componentId}_${procedure.procedureName}.js`;
+    const content = this.getProcedureFileContent(procedure);
+
+    this.writeFile(filePath, content);
+  }
+
+  /**
    * Copy dev files to prod ones file
    * @description Copy procedures.js from src/__generated__/dev to src/__generated__/prod
    */
-  public async copyDevFilesToProd(): Promise<void> {
+  public copyDevFilesToProd(): void {
     // Get dev procedures
     const filePath = `${PROJECT_DIR}/src/__generated__/${Stage.development}/procedures.json`;
+    if (!fs.existsSync(filePath)) {
+      return;
+    }
+    
     const devJsonFileContent = this.readFile(filePath);
     const devProcedures = JSON.parse(devJsonFileContent) as FileProcedure[];
     
@@ -132,14 +147,6 @@ export class CodeWriter {
     return fs.readFileSync(filePath, 'utf8');
   }
 
-  private removeFile(filePath: string): void {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    };
-
-    this.generateAutoImports();
-  }
-
   private copyDirectory(src: string, dest: string): void {
     // Create the destination directory if it doesn't exist
     if (!fs.existsSync(dest)) {
@@ -168,41 +175,34 @@ export class CodeWriter {
     let content: string = this.AUTO_GENERATED_FILE_HEADER;
     
     // Add the imports
-    content += `import { app } from '../../app.js';\n\n`;
-
-    // Register the procedures
+    content += `import { app } from '../../app.js';\n`;
     procedures.forEach(procedure => {
-      const { stage, pageId, componentType, componentId, functionBody, procedureName } = procedure;
-      content += `app.registerProcedureForComponent('${stage}', '${pageId}', '${componentType}', '${componentId}', '${procedureName}', ${functionBody});\n\n`;
+      content += `import ${procedure.componentType}_${procedure.componentId}_${procedure.procedureName} from './procedures/${procedure.componentType}_${procedure.componentId}_${procedure.procedureName}.js';\n`;
+    });
+    content += '\n';
+
+    // Set the procedures
+    procedures.forEach(procedure => {
+      const { stage, pageId, componentType, componentId, procedureName } = procedure;
+      content += `app.registerProcedureForComponent('${stage}', '${pageId}', '${componentType}', '${componentId}', '${procedureName}', ${procedure.componentType}_${procedure.componentId}_${procedure.procedureName});\n\n`;
     });
 
     return content;
   }
 
-  private getAdaptersFileContent(adapter: Adapter): string {
+  private getProcedureFileContent(procedure: FileProcedure): string {
+    return `${this.AUTO_GENERATED_FILE_HEADER} ${procedure.functionBody}`;
+  }
+
+  private getAdapterFileContent(adapter: Adapter): string {
     let content: string = '';
 
     // Add the imports
     content += `import { createAdapter } from '@kottster/backend';\n\n`;
 
-    // Add adapters initialization
-    content += `const adapters = [\n`;
-    content += `  createAdapter(\n    '${adapter.type}', \n    ${stringifyObject({ connectionOptions: adapter.getConnectionOptions() }, '    ')}\n  )\n`;
-    content += `];\n\n`;
-
-    // Export the adapters
-    content += `export default adapters;\n\n`;
+    // Export the initialized adapter
+    content += `export const adapter = createAdapter(\n  '${adapter.type}', \n  ${stringifyObject({ connectionOptions: adapter.getConnectionOptions() }, '  ')}\n);\n\n`;
     
     return content;
-  }
-
-  private isJSCodeValid(code: string): boolean {
-    try {
-      parseModule(code, { tolerant: true });
-      return true;
-    } catch (error) {
-      console.error(error);
-      return false;
-    }
   }
 }

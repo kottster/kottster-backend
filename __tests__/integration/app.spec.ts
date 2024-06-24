@@ -33,7 +33,7 @@ describe('app integration test', () => {
         searchPath: ['public'],
       },
     });
-    app.setAdapters([adapter]);
+    app.setAdapter(adapter);
 
     // Start the server
     server = app.start(9032);

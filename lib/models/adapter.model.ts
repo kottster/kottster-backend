@@ -84,6 +84,17 @@ export abstract class Adapter {
     return this.knex;
   }
 
+  /**
+   * Get the instance that will be added to the context
+   * @returns The key and value to add to the context
+   */
+  getContextInstance(): { key: string; value: any; } {
+    return {
+      key: 'knex',
+      value: this.getKnexInstance(),
+    }
+  }
+
   abstract knexClientKey: string;
 
   abstract getDatabaseSchema(): Promise<DatabaseSchema>;

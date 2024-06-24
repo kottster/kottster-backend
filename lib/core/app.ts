@@ -9,6 +9,7 @@ import chalk from 'chalk';
 import { Stage } from '../models/stage.model';
 import { Role } from '../models/role.model';
 import { getEnvOrThrow } from '../utils/getEnvOrThrow';
+import { AppContext, ExtendAppContextFunction } from '../models/appContext.model';
 
 export interface KottsterAppOptions {
   appId: string;
@@ -24,6 +25,7 @@ export class KottsterApp {
   private readonly expressApp = express();
   private readonly jwtSecret = getEnvOrThrow('JWT_SECRET');
   private procedures: Procedure[] = [];
+  public extendContext: ExtendAppContextFunction;
   
   public adapter: Adapter;
 
@@ -35,14 +37,36 @@ export class KottsterApp {
   }
 
   /**
-   * Inject a adapter into the application
+   * Inject an adapter into the app
    * @param adapter The adapter to use
    */
-  public setAdapters(adapters: Adapter[]) {
-    // TODO: allow multiple adapters
-    this.adapter = adapters?.[0] ?? null;
-
+  public setAdapter(adapter: Adapter) {
+    this.adapter = adapter;
     this.adapter?.connect();
+  }
+
+  /**
+   * Create a context for a request
+   * @param req The Express request object
+   */
+  public createContext(): AppContext {
+    const ctx: AppContext = {};
+    
+    // Add the adapter instance to the context
+    const ctxAdapterInstance = this.adapter.getContextInstance();
+    if (ctxAdapterInstance) {
+      ctx[ctxAdapterInstance.key] = ctxAdapterInstance.value;
+    }
+
+    return this.extendContext ? this.extendContext(ctx) : ctx;
+  }
+
+  /**
+   * Set the context for each request
+   * @param extendContext The function to extend the context
+   */
+  public setupContext(extendContext: ExtendAppContextFunction) {
+    this.extendContext = extendContext;
   }
 
   /**
@@ -62,15 +86,6 @@ export class KottsterApp {
   }
 
   /**
-   * Add the context to a passed function
-   * @param fn The function to add context to
-   */
-  private addContext<T extends Function>(fn: T): T {
-    // TODO: use proxy object instead of KottsterApp instance
-    return fn.bind(this);
-  }
-
-  /**
    * Register a procedure for a specific component
    * @param pageId The ID of the page
    * @param componentType The type of the component
@@ -84,7 +99,7 @@ export class KottsterApp {
     componentType: string, 
     componentId: string, 
     procedureName: string,
-    procedure: ProcedureFunction
+    procedureFunction: ProcedureFunction
   ): void {
     // Delete all existing procedures for the component
     this.procedures = this.procedures.filter(p => p.stage !== stage || p.pageId !== pageId || p.componentType !== componentType || p.componentId !== componentId);
@@ -96,7 +111,7 @@ export class KottsterApp {
       componentType,
       componentId,
       procedureName,
-      function: this.addContext(procedure)
+      function: procedureFunction
     });
   }
 
@@ -149,13 +164,9 @@ export class KottsterApp {
   }
 
   private setupRoutes(): void {
-    this.expressApp.get('/', routes.healthcheck.bind(this));
-    this.expressApp.get('/action/:action', this.getAuthMiddleware(Role.DEVELOPER), routes.executeAction.bind(this));
-    this.expressApp.get('/execute/:stage/:pageId/:componentType/:componentId/:procedureName', this.getAuthMiddleware(), routes.executeProcedure.bind(this));
-    
-    Object.entries(routes).forEach(([route, handler]) => {
-      this.expressApp.get(route, handler);
-    })
+    this.expressApp.get('/', routes.healthcheck(this));
+    this.expressApp.get('/action/:action', this.getAuthMiddleware(Role.DEVELOPER), routes.executeAction(this));
+    this.expressApp.get('/execute/:stage/:pageId/:componentType/:componentId/:procedureName', this.getAuthMiddleware(), routes.executeProcedure(this));
   }
 
   /**

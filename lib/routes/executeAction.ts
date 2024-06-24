@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { ActionService } from '../services/action.service';
 import { KottsterApp } from '../core/app';
 
-export async function executeAction(this: KottsterApp, req: Request, res: Response) {
+export const executeAction = (app: KottsterApp) => async (req: Request, res: Response) => {
   const { action } = req.params;
   
   // Parse action data
@@ -19,7 +19,7 @@ export async function executeAction(this: KottsterApp, req: Request, res: Respon
 
   try {
     // Process the request based on the action and data
-    const result = await ActionService.getAction(this, action).execute(data);
+    const result = await ActionService.getAction(app, action).execute(data);
     
     res.json({
       result,

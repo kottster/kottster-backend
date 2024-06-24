@@ -3,8 +3,7 @@
 exports[`services/codeWriter should create file with adapter 1`] = `
 "import { createAdapter } from '@kottster/backend';
 
-const adapters = [
-  createAdapter(
+const adapter = createAdapter(
     'postgresql', 
     {
       connectionOptions: {
@@ -20,10 +19,7 @@ const adapters = [
         ]
       }
     }
-  )
-];
-
-export default adapters;
+  );export default adapter;
 
 "
 `;
